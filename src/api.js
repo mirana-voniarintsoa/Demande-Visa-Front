@@ -19,3 +19,24 @@ export async function rechercherDemande(query) {
   }
   return response.json();
 }
+
+export async function getHistoriqueStatuts(demandeId) {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+  const response = await fetch(`${baseUrl}/api/demandes/${encodeURIComponent(demandeId)}/statuts`, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  });
+  if (!response.ok) {
+    let message = '';
+    try {
+      const maybeJson = await response.json();
+      if (maybeJson && typeof maybeJson.message === 'string') {
+        message = maybeJson.message;
+      }
+    } catch {
+      message = await response.text().catch(() => '');
+    }
+    throw new Error(message || `HTTP ${response.status}`);
+  }
+  return response.json();
+}

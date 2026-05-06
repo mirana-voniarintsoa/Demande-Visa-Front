@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { rechercherDemande } from '../api'; 
+import { getHistoriqueStatuts, rechercherDemande } from '../api'; 
 function RechercheDemande() {
   const [inputValue, setInputValue] = useState('');
   const [type, setType] = useState('passeport');
   const [result, setResult] = useState(null);
+  const [historique, setHistorique] = useState([]);
+  const [historiqueError, setHistoriqueError] = useState('');
   const [error, setError] = useState('');
 
   const handleInputChange = (e) => {
@@ -18,9 +20,21 @@ function RechercheDemande() {
   const runSearch = useCallback(async (data) => {
     setError('');
     setResult(null);
+    setHistorique([]);
+    setHistoriqueError('');
     try {
       const res = await rechercherDemande(data);
       setResult(res);
+
+      if (res?.demandeId != null) {
+        try {
+          const hist = await getHistoriqueStatuts(res.demandeId);
+          setHistorique(Array.isArray(hist) ? hist : []);
+        } catch (err) {
+          console.error(err);
+          setHistoriqueError(err?.message || "Erreur lors du chargement de l'historique.");
+        }
+      }
     } catch (err) {
       console.error(err);
       setError(err?.message || "Erreur lors de l'envoi vers le serveur.");
@@ -53,6 +67,13 @@ function RechercheDemande() {
       runSearch({ passeport: null, demande });
     }
   }, [runSearch]);
+
+  const formatDate = (value) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString();
+  };
   
 
   return (
@@ -106,6 +127,29 @@ function RechercheDemande() {
           <div><strong>Demandeur</strong> : {result.demandeur}</div>
           <div><strong>Type visa</strong> : {result.typeVisa}</div>
           <div><strong>Statut</strong> : {result.statut}</div>
+
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>Historique des statuts</div>
+
+            {historiqueError ? (
+              <div style={{ marginBottom: 8, padding: 10, borderRadius: 6, background: '#fff1f2', border: '1px solid #fecdd3', color: '#881337' }}>
+                {historiqueError}
+              </div>
+            ) : null}
+
+            {historique && historique.length > 0 ? (
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {historique.map((h, idx) => (
+                  <li key={`${h?.statut || 'statut'}-${h?.dateModification || idx}`}>
+                    <strong>{h?.statut || '—'}</strong>
+                    {h?.dateModification ? ` — ${formatDate(h.dateModification)}` : ''}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div style={{ color: '#475569' }}>Aucun historique disponible.</div>
+            )}
+          </div>
         </div>
       ) : null}
     </div>
