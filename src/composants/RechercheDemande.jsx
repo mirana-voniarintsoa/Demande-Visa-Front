@@ -1,12 +1,19 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { getHistoriqueStatuts, rechercherDemande } from '../api'; 
+import { useCallback, useEffect, useState } from 'react';
+import { getHistoriqueStatuts, rechercherDemande } from '../api';
 function RechercheDemande() {
-  const [inputValue, setInputValue] = useState('');
-  const [type, setType] = useState('passeport');
+  const [inputValue, setInputValue] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('passeport') || params.get('demande') || '';
+  });
+  const [type, setType] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('demande') ? 'demande' : 'passeport';
+  });
   const [result, setResult] = useState(null);
   const [historique, setHistorique] = useState([]);
   const [historiqueError, setHistoriqueError] = useState('');
   const [error, setError] = useState('');
+  const [photoError, setPhotoError] = useState(false);
 
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
@@ -22,9 +29,11 @@ function RechercheDemande() {
     setResult(null);
     setHistorique([]);
     setHistoriqueError('');
+    setPhotoError(false);
     try {
       const res = await rechercherDemande(data);
       setResult(res);
+      setPhotoError(false);
 
       if (res?.demandeId != null) {
         try {
@@ -56,14 +65,11 @@ function RechercheDemande() {
     const demande = params.get('demande');
 
     if (passeport) {
-      setType('passeport');
-      setInputValue(passeport);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       runSearch({ passeport, demande: null });
       return;
     }
     if (demande) {
-      setType('demande');
-      setInputValue(demande);
       runSearch({ passeport: null, demande });
     }
   }, [runSearch]);
@@ -74,6 +80,11 @@ function RechercheDemande() {
     if (Number.isNaN(d.getTime())) return String(value);
     return d.toLocaleString();
   };
+
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+  const demandeurPhotoUrl = result?.demandeurId != null
+    ? `${baseUrl}/api/demandeurs/${encodeURIComponent(result.demandeurId)}/photo`
+    : null;
   
 
   return (
@@ -127,6 +138,18 @@ function RechercheDemande() {
           <div><strong>Demandeur</strong> : {result.demandeur}</div>
           <div><strong>Type visa</strong> : {result.typeVisa}</div>
           <div><strong>Statut</strong> : {result.statut}</div>
+
+          {demandeurPhotoUrl && !photoError ? (
+            <div style={{ marginTop: 12 }}>
+              <div><strong>Photo</strong> :</div>
+              <img
+                src={demandeurPhotoUrl}
+                alt="Photo du demandeur"
+                style={{ display: 'block', marginTop: 8, width: 140, height: 140, objectFit: 'cover', borderRadius: 8, border: '1px solid #e2e8f0' }}
+                onError={() => setPhotoError(true)}
+              />
+            </div>
+          ) : null}
 
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #e2e8f0' }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Historique des statuts</div>
